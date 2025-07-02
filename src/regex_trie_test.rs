@@ -2,6 +2,9 @@ use pretty_assertions::assert_eq;
 
 use crate::RegexTrie;
 
+/// Test set
+const TEST_SET: &str = include_str!("../assets/small_set.txt");
+
 #[test]
 fn test_basic_patterns() {
     let patterns = vec![
@@ -167,6 +170,34 @@ fn test_custom_url_priority() {
     let result = tree.find_best_match("https://www.google.com/foo/test/bar");
     assert_eq!(
         Some(patterns[0].clone()),
+        result,
+        "should not match the shortest, but the plain match"
+    );
+}
+
+/// Test real like assets works
+#[test]
+fn test_assets() {
+    let patterns = TEST_SET
+        .split('\n')
+        .filter_map(|item| {
+            if item.is_empty() {
+                None
+            } else {
+                Some(item.to_string())
+            }
+        })
+        .collect::<Vec<String>>();
+
+    let tree = RegexTrie::from(&patterns).expect("can't init regex trie");
+    // Match best
+    let result = tree.find_best_match(
+        "https://www.google.com/b4a/test/mqgzumi/another/yh936/again/kk839gym/abc123",
+    );
+    assert_eq!(
+        Some(
+            "https://www\\.google\\.com/b4a/.*/mqgzumi/.*/yh936/.*/kk839gym/[a-z0-9]+".to_string()
+        ),
         result,
         "should not match the shortest, but the plain match"
     );

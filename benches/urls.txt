@@ -1,4 +1,0 @@
-https://www\.google\.com/test
-https://www\.google\.com/.*/test/.*
-https://www\.google\.com/.*
-https://www\.yahoo\.com/[a-z0-9]+/dummy
