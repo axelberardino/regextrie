@@ -88,6 +88,10 @@ fn test_shortest_match_priority() {
     let patterns = vec!["a.*".to_string(), "a[0-9]+b.*".to_string()];
     let tree = RegexTrie::from(&patterns).expect("can't init regex trie");
 
+    // Ensure everything match
+    assert_eq_no_sort(patterns.clone(), tree.find_matches("a123bbb"));
+
+    // Match best
     let result = tree.find_best_match("a123bbb");
     assert_eq!(Some(patterns[0].clone()), result, "should match");
 }
@@ -97,6 +101,10 @@ fn test_plain_match_priority_over_regex() {
     let patterns = vec!["a.*".to_string(), "a123bbb".to_string()];
     let tree = RegexTrie::from(&patterns).expect("can't init regex trie");
 
+    // Ensure everything match
+    assert_eq_no_sort(patterns.clone(), tree.find_matches("a123bbb"));
+
+    // Match best
     let result = tree.find_best_match("a123bbb");
     assert_eq!(
         Some(patterns[1].clone()),
@@ -115,6 +123,10 @@ fn test_custom_match_priority() {
     )
     .expect("can't init regex trie");
 
+    // Ensure everything match
+    assert_eq_no_sort(patterns.clone(), tree.find_matches("a123bbb"));
+
+    // Match best
     let result = tree.find_best_match("a123bbb");
     assert_eq!(
         Some(patterns[0].clone()),
@@ -127,26 +139,31 @@ fn test_custom_match_priority() {
 #[test]
 fn test_custom_url_priority() {
     let patterns = vec![
-        "https://www.google.com/[a-zA-Z0-9-]+".to_string(),
+        "https://www.google.com/[a-zA-Z0-9/-]+".to_string(),
         "https://www.google.com/.*/test/.*".to_string(),
     ];
     let tree = RegexTrie::from_with_scorer(
         &patterns,
         // Custom scorer with url path segments count
         Box::new(|pattern: &str, _| {
-            let score = url::Url::parse(pattern).map_or_else(
+            url::Url::parse(pattern).map_or_else(
                 |_err| pattern.len(),
                 |val| {
                     val.path_segments()
                         .map_or_else(|| pattern.len(), |segments| segments.into_iter().count())
                 },
-            );
-            println!("{pattern} => {score}");
-            score
+            )
         }),
     )
     .expect("can't init regex trie");
 
+    // Ensure everything match
+    assert_eq_no_sort(
+        patterns.clone(),
+        tree.find_matches("https://www.google.com/foo/test/bar"),
+    );
+
+    // Match best
     let result = tree.find_best_match("https://www.google.com/foo/test/bar");
     assert_eq!(
         Some(patterns[0].clone()),

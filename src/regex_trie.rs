@@ -293,7 +293,6 @@ impl RegexTrie {
                                 best_match = Some((pattern_str.clone(), *score));
                             }
                         }
-
                         None => best_match = Some((pattern_str.clone(), *score)),
                     }
                 }

@@ -1,3 +1,3 @@
-# Radex
+# RegexTrie
 
-Regex radix tree
+Regex trie tree for fast multiple regex match
