@@ -141,7 +141,8 @@ impl RegexTrie {
     /// If the regex pattern can't be compiled
     fn insert_many_lazy(&mut self, patterns: &[String]) -> Result<(), RegexTrieError> {
         // Empty or "$-"" means a regex which never match
-        let placeholder = Regex::new("")?;
+        let placeholder =
+            Regex::new("").map_err(|err| RegexTrieError::RegexCompilationFailed(Box::new(err)))?;
         let mut to_compile = Vec::default();
 
         for pattern in patterns {
@@ -197,7 +198,8 @@ impl RegexTrie {
             .par_iter()
             .map(|(idx, pattern)| {
                 // Compile the pattern into a DFA. Return an error on failure.
-                let dfa = Regex::new(pattern)?;
+                let dfa = Regex::new(pattern)
+                    .map_err(|err| RegexTrieError::RegexCompilationFailed(Box::new(err)))?;
                 Ok::<_, RegexTrieError>((*idx, dfa))
             })
             .collect::<Result<Vec<_>, _>>()?;

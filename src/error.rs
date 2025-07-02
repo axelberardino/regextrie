@@ -3,5 +3,5 @@
 pub enum RegexTrieError {
     /// When no columns are found in the specs
     #[error(transparent)]
-    RegexCompilationFailed(#[from] regex_automata::dfa::dense::BuildError),
+    RegexCompilationFailed(Box<regex_automata::dfa::dense::BuildError>),
 }
