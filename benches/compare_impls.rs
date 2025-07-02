@@ -157,10 +157,38 @@ fn assets_big_bench_best_match(c: &mut Criterion) {
     group.finish();
 }
 
+/// Bench all implementation with the given asset files, on the loading part
+fn bench_loading(c: &mut Criterion) {
+    let mut group = c.benchmark_group("loading_time");
+
+    // Measure behaviour at different scales.
+    let corpus = BIG_SET
+        .split('\n')
+        .filter_map(|item| {
+            if item.is_empty() {
+                None
+            } else {
+                Some(item.to_string())
+            }
+        })
+        .collect::<Vec<String>>();
+
+    group.bench_function(BenchmarkId::new("Naive", ""), |bencher| {
+        bencher.iter(|| black_box(Naive::from(&corpus).expect("can't init Naive")));
+    });
+
+    group.bench_function(BenchmarkId::new("RegexTrie", ""), |bencher| {
+        bencher.iter(|| black_box(RegexTrie::from(&corpus).expect("can't init RegexTrie")));
+    });
+
+    group.finish();
+}
+
 criterion_group!(
     benches,
     random_bench_best_match,
     assets_small_bench_best_match,
     assets_big_bench_best_match,
+    bench_loading,
 );
 criterion_main!(benches);

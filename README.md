@@ -1,3 +1,4 @@
 # RegexTrie
 
-Regex trie tree for fast multiple regex match
+Regex trie tree is design for fast multiple regex match.
+
