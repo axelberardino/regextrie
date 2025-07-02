@@ -54,7 +54,7 @@ impl Naive {
 
 /// Bench all implementation
 fn random_bench_best_match(c: &mut Criterion) {
-    let mut group = c.benchmark_group("best_match");
+    let mut group = c.benchmark_group("random_best_match");
 
     // Measure behaviour at different scales.
     for &size in &[10_usize, 1_000, 10_000] {
@@ -85,7 +85,7 @@ fn random_bench_best_match(c: &mut Criterion) {
 
 /// Bench all implementation with the given asset files
 fn assets_small_bench_best_match(c: &mut Criterion) {
-    let mut group = c.benchmark_group("best_match");
+    let mut group = c.benchmark_group("small_assets_best_match");
 
     // Measure behaviour at different scales.
     let corpus = SMALL_SET
@@ -107,12 +107,12 @@ fn assets_small_bench_best_match(c: &mut Criterion) {
     // let bin = BinarySearchIndex::from(corpus.clone());
     let trie = RegexTrie::from(&corpus).expect("can't init RegexTrie");
 
-    group.bench_with_input(BenchmarkId::new("Naive", 0), &naive, |bencher, matcher| {
+    group.bench_with_input(BenchmarkId::new("Naive", ""), &naive, |bencher, matcher| {
         bencher.iter(|| black_box(matcher.find_best_match(query)));
     });
 
     group.bench_with_input(
-        BenchmarkId::new("RegexTrie", 0),
+        BenchmarkId::new("RegexTrie", ""),
         &trie,
         |bencher, matcher| bencher.iter(|| black_box(matcher.find_best_match(query))),
     );
@@ -122,7 +122,7 @@ fn assets_small_bench_best_match(c: &mut Criterion) {
 
 /// Bench all implementation with the given asset files
 fn assets_big_bench_best_match(c: &mut Criterion) {
-    let mut group = c.benchmark_group("best_match");
+    let mut group = c.benchmark_group("big_assets_best_match");
 
     // Measure behaviour at different scales.
     let corpus = BIG_SET
@@ -144,12 +144,12 @@ fn assets_big_bench_best_match(c: &mut Criterion) {
     // let bin = BinarySearchIndex::from(corpus.clone());
     let trie = RegexTrie::from(&corpus).expect("can't init RegexTrie");
 
-    group.bench_with_input(BenchmarkId::new("Naive", 0), &naive, |bencher, matcher| {
+    group.bench_with_input(BenchmarkId::new("Naive", ""), &naive, |bencher, matcher| {
         bencher.iter(|| black_box(matcher.find_best_match(query)));
     });
 
     group.bench_with_input(
-        BenchmarkId::new("RegexTrie", 0),
+        BenchmarkId::new("RegexTrie", ""),
         &trie,
         |bencher, matcher| bencher.iter(|| black_box(matcher.find_best_match(query))),
     );
