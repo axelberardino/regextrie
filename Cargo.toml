@@ -2,6 +2,7 @@
 name = "regextrie"
 version = "0.1.0"
 edition = "2024"
+description = "High-performance Rust library designed for matching a large number of regular expressions against a given input string"
 
 [[bin]]
 name = "regextrie"
