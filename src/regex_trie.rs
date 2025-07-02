@@ -1,6 +1,8 @@
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use regex_automata::dfa::regex::Regex;
 use std::collections::{HashMap, HashSet};
-use std::error::Error;
+
+use crate::RegexTrieError;
 
 /// Special character in a regex
 const SPECIALS: &str = ".?*+()[]{}";
@@ -76,17 +78,23 @@ impl RegexTrie {
         }
     }
 
+    // /// Compile many patterns into regex, in parallels
+    // fn compile_all_in_parallel(patterns: &[&str]) -> Result<Vec<Regex>, regex::Error> {
+    //     // Each pattern is compiled on a separate worker thread.
+    //     patterns
+    //         .par_iter() // convert to a parallel iterator
+    //         .map(|pat| Regex::new(pat)) // compile; keeps Result to propagate errors
+    //         .collect() // Result<Vec<Regex>, regex::Error>
+    // }
+
     /// Creates a new `RegexTrie` from a set of patterns.
     ///
     /// ## Errors
     ///
     /// If any of the regex pattern can't be compiled
-    pub fn from(patterns: &[String]) -> Result<Self, Box<dyn Error>> {
+    pub fn from(patterns: &[String]) -> Result<Self, RegexTrieError> {
         let mut trie = Self::new();
-        for pattern in patterns {
-            trie.insert(pattern)?;
-        }
-
+        trie.insert_many(patterns)?;
         Ok(trie)
     }
 
@@ -98,12 +106,9 @@ impl RegexTrie {
     pub fn from_with_scorer(
         patterns: &[String],
         scorer: ScorerFuncType,
-    ) -> Result<Self, Box<dyn Error>> {
+    ) -> Result<Self, RegexTrieError> {
         let mut trie = Self::new_with_custom_scorer(scorer);
-        for pattern in patterns {
-            trie.insert(pattern)?;
-        }
-
+        trie.insert_many(patterns)?;
         Ok(trie)
     }
 
@@ -114,51 +119,92 @@ impl RegexTrie {
     /// ## Errors
     ///
     /// If the regex pattern can't be compiled
-    pub fn insert(&mut self, pattern: &str) -> Result<(), Box<dyn Error>> {
-        // Traverse the trie using the literal prefix of the pattern.
-        let mut current_node = &mut self.root;
-        let mut previous_char = None;
-        let mut is_regex = false;
-        let mut chars = pattern.chars().peekable();
-        while let Some(ch) = chars.next() {
-            if ch == '\\' && matches!(chars.peek(), Some(next) if SPECIALS.contains(*next)) {
-                // Unpop the escape character
-                previous_char = Some(ch);
-                continue;
-            }
+    pub fn insert(&mut self, pattern: &str) -> Result<(), RegexTrieError> {
+        self.insert_many_lazy(&[pattern.to_string()])
+    }
 
-            // Stop at the first non escaped regex meta-character.
-            let mut is_escaped = false;
-            if SPECIALS.contains(ch) {
-                // Escaped means we should represent the pattern as escaped
-                if previous_char == Some('\\') {
-                    is_escaped = true;
-                } else {
-                    // This is a regex, we can stop
-                    is_regex = true;
-                    break;
+    /// Insert many pattern at once. Regex compilation are parallelized.
+    ///
+    /// ## Errors
+    ///
+    /// If any regex pattern can't be compiled, the whole set will failed
+    pub fn insert_many(&mut self, patterns: &[String]) -> Result<(), RegexTrieError> {
+        self.insert_many_lazy(patterns)
+    }
+
+    /// Insert many entries, but without compiling any regex immediately.
+    /// Instead, compute it at the end in parallel (because it's costly
+    /// operation).
+    ///
+    /// ## Errors
+    ///
+    /// If the regex pattern can't be compiled
+    fn insert_many_lazy(&mut self, patterns: &[String]) -> Result<(), RegexTrieError> {
+        // Empty or "$-"" means a regex which never match
+        let placeholder = Regex::new("")?;
+        let mut to_compile = Vec::default();
+
+        for pattern in patterns {
+            // Traverse the trie using the literal prefix of the pattern.
+            let mut current_node = &mut self.root;
+            let mut previous_char = None;
+            let mut is_regex = false;
+            let mut chars = pattern.chars().peekable();
+            while let Some(ch) = chars.next() {
+                if ch == '\\' && matches!(chars.peek(), Some(next) if SPECIALS.contains(*next)) {
+                    // Unpop the escape character
+                    previous_char = Some(ch);
+                    continue;
                 }
+
+                // Stop at the first non escaped regex meta-character.
+                let mut is_escaped = false;
+                if SPECIALS.contains(ch) {
+                    // Escaped means we should represent the pattern as escaped
+                    if previous_char == Some('\\') {
+                        is_escaped = true;
+                    } else {
+                        // This is a regex, we can stop
+                        is_regex = true;
+                        break;
+                    }
+                }
+
+                current_node = current_node.children.entry(ch).or_default();
+                current_node.is_escaped = is_escaped;
+                previous_char = Some(ch);
             }
 
-            current_node = current_node.children.entry(ch).or_default();
-            current_node.is_escaped = is_escaped;
-            previous_char = Some(ch);
+            if is_regex {
+                // Put a placeholder, the regex will be compiled later
+                let pattern_index = self.compiled_patterns.len();
+                let score = (self.scorer)(pattern, true);
+                self.compiled_patterns
+                    .push((pattern.clone(), placeholder.clone(), score));
+                to_compile.push((pattern_index, pattern.clone()));
+
+                // Store the index of the compiled pattern at the node corresponding
+                // to the end of its literal prefix.
+                current_node.pattern_indices.push(pattern_index);
+            } else {
+                // Special value to indicate it's not a regex but a complete string
+                current_node.contains_non_regex_prefix = true;
+            }
         }
 
-        if is_regex {
-            // Compile the pattern into a DFA. Return an error on failure.
-            let dfa = Regex::new(pattern)?;
-            let pattern_index = self.compiled_patterns.len();
-            let score = (self.scorer)(pattern, true);
-            self.compiled_patterns
-                .push((pattern.to_string(), dfa, score));
+        // Each pattern is compiled on a separate worker thread.
+        let compiled = to_compile
+            .par_iter()
+            .map(|(idx, pattern)| {
+                // Compile the pattern into a DFA. Return an error on failure.
+                let dfa = Regex::new(pattern)?;
+                Ok::<_, RegexTrieError>((*idx, dfa))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
 
-            // Store the index of the compiled pattern at the node corresponding
-            // to the end of its literal prefix.
-            current_node.pattern_indices.push(pattern_index);
-        } else {
-            // Special value to indicate it's not a regex but a complete string
-            current_node.contains_non_regex_prefix = true;
+        // Overwrite all placeholders
+        for (idx, dfa) in compiled {
+            self.compiled_patterns[idx].1 = dfa;
         }
 
         Ok(())

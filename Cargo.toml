@@ -13,14 +13,16 @@ path = "benches/compare_impls.rs"
 harness = false
 
 [dependencies]
+rayon = "1.10"
 regex-automata = "0.4"
 regex-syntax = "0.8.5"
+thiserror = "2.0.12"
 
 [dev-dependencies]
 criterion = "0.6.0"
 pretty_assertions = "1.4.1"
-url = "2.5.4"
 regex = "1.0"
+url = "2.5.4"
 
 [lints.rust]
 missing_docs = "warn"
