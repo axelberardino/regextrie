@@ -511,6 +511,7 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "pretty_assertions",
+ "regex",
  "regex-automata",
  "regex-syntax",
  "url",

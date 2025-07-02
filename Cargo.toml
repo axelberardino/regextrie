@@ -7,6 +7,11 @@ edition = "2024"
 name = "regextrie"
 path = "cmd/main.rs"
 
+[[bench]]
+name = "compare_impls"
+path = "benches/compare_impls.rs"
+harness = false
+
 [dependencies]
 regex-automata = "0.4"
 regex-syntax = "0.8.5"
@@ -15,6 +20,7 @@ regex-syntax = "0.8.5"
 criterion = "0.6.0"
 pretty_assertions = "1.4.1"
 url = "2.5.4"
+regex = "1.0"
 
 [lints.rust]
 missing_docs = "warn"
